@@ -45,14 +45,72 @@ static const CONF_PARSER module_config[] = {
 };
 
 
+static int omapi_vp_getstring(VALUE_PAIR *check, const char *attr, char *buf, int len)
+{
+	char lp[] = "rlm_omapi: omapi_vp_getstring";
+	VALUE_PAIR *vp;
+	DICT_ATTR *dattr;
+	ATTR_FLAGS *flags;
+
+	DEBUG("%s: looking up attribute number for '%s'", lp, attr);
+	dattr = dict_attrbyname(attr);
+	if(!dattr) {
+		radlog(L_ERR, "%s: No such attribute in dictionary: %s", lp, attr);
+		return 0;
+	}
+
+	DEBUG("%s: looking up vp with attribute %s", lp, attr);
+	vp = pairfind(check, dattr->attr);
+	if(!vp) {
+		radlog(L_INFO, "%s: %s not found!", lp, attr);
+		return 0;
+	}
+
+	radlog(L_INFO, "%s: Found vp: %s = '%s'", lp, attr, vp->vp_strvalue);
+	if(!vp->vp_strvalue) {
+		radlog(L_ERR, "%s: attribute %s is not of type 'string'!", lp, attr);
+		return 0;
+	}
+
+	return strlcpy(buf, vp->vp_strvalue, len);
+}
+
 /*
  *	Authenticate the user with the given password.
  */
 static int omapi_post_auth(void *instance, REQUEST *request)
 {
+	int port;
+	char server[1024], port_str[8];
+	char key[1024], key_name[1024];
+	char key_type[] = "hmac-md5"; /* hard-coded for now */
+	char user_ip[1024], user_mac[1024];
+
 	/* quiet the compiler */
 	instance = instance;
 	request = request;
+
+	/* gather information; sanity checks */
+
+	VALUE_PAIR *rad_check = request->config_items;
+	if(!omapi_vp_getstring(rad_check, "Zedat-Omapi-Host", server, sizeof(server)) ||
+	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-Port", port_str, sizeof(port_str)) ||
+	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-IP-Address", user_ip, sizeof(user_ip)) ||
+	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-Mac-Address", user_mac, sizeof(user_mac)) ||
+	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-Key", key, sizeof(key)) ||
+	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-Key-Name", key_type, sizeof(key_type))) {
+		radlog(L_ERR, "rlm_omapi: MEEEEH");
+		return RLM_MODULE_NOOP;
+	}
+
+	radlog(L_INFO, "rlm_omapi: trying to add mapping %s = %s to %s:%s",
+			user_mac, user_ip, server, port_str);
+
+	/* establish OMAPI connection */
+
+	/* add/delete logic */
+
+	/* shut down connection, free objects */
 
 	return RLM_MODULE_OK;
 }
