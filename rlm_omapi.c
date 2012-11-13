@@ -80,6 +80,11 @@ static int omapi_vp_getstring(VALUE_PAIR *check, const char *attr, char *buf, in
 	return strlcpy(buf, vp->vp_strvalue, len);
 }
 
+static int omapi_add_dhcp_entry(struct omapi_server *s)
+{
+	return 1;
+}
+
 static int omapi_post_auth(void *instance, REQUEST *request)
 {
 	char port_str[8];
@@ -110,11 +115,13 @@ static int omapi_post_auth(void *instance, REQUEST *request)
 	radlog(L_INFO, "rlm_omapi: trying to add mapping %s = %s to %s:%d",
 			s->user_mac, s->user_ip, s->server, s->port);
 
-	/* establish OMAPI connection */
+	/* call OMAPI */
+	if(!omapi_add_dhcp_entry(s)) {
+		radlog(L_ERR, "rlm_omapi: Adding Host failed, returning noop");
+		return RLM_MODULE_NOOP;
+	}
 
-	/* add/delete logic */
-
-	/* shut down connection, free objects */
+	/* free objects */
 	free(s);
 
 	return RLM_MODULE_OK;
