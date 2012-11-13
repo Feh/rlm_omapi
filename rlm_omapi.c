@@ -44,13 +44,18 @@ static const CONF_PARSER module_config[] = {
   { NULL, -1, 0, NULL, NULL }		/* end the list */
 };
 
+struct omapi_server {
+	int port;
+	char server[1024];
+	char key[1024], key_name[1024], key_type[128];
+	char user_ip[1024], user_mac[1024];
+};
 
 static int omapi_vp_getstring(VALUE_PAIR *check, const char *attr, char *buf, int len)
 {
 	char lp[] = "rlm_omapi: omapi_vp_getstring";
 	VALUE_PAIR *vp;
 	DICT_ATTR *dattr;
-	ATTR_FLAGS *flags;
 
 	DEBUG("%s: looking up attribute number for '%s'", lp, attr);
 	dattr = dict_attrbyname(attr);
@@ -77,11 +82,12 @@ static int omapi_vp_getstring(VALUE_PAIR *check, const char *attr, char *buf, in
 
 static int omapi_post_auth(void *instance, REQUEST *request)
 {
-	int port;
-	char server[1024], port_str[8];
-	char key[1024], key_name[1024];
-	char key_type[] = "hmac-md5"; /* hard-coded for now */
-	char user_ip[1024], user_mac[1024];
+	char port_str[8];
+	struct omapi_server *s;
+
+	s = rad_malloc(sizeof(*s));
+	memset(s, 0, sizeof(s));
+	strcpy(s->key_type, "hmac-md5"); /* hard-coded for now */
 
 	/* quiet the compiler */
 	instance = instance;
@@ -90,24 +96,26 @@ static int omapi_post_auth(void *instance, REQUEST *request)
 	/* gather information; sanity checks */
 
 	VALUE_PAIR *rad_check = request->config_items;
-	if(!omapi_vp_getstring(rad_check, "Zedat-Omapi-Host", server, sizeof(server)) ||
+	if(!omapi_vp_getstring(rad_check, "Zedat-Omapi-Host", s->server, sizeof(s->server)) ||
 	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-Port", port_str, sizeof(port_str)) ||
-	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-IP-Address", user_ip, sizeof(user_ip)) ||
-	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-Mac-Address", user_mac, sizeof(user_mac)) ||
-	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-Key", key, sizeof(key)) ||
-	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-Key-Name", key_type, sizeof(key_type))) {
+	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-IP-Address", s->user_ip, sizeof(s->user_ip)) ||
+	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-Mac-Address", s->user_mac, sizeof(s->user_mac)) ||
+	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-Key", s->key, sizeof(s->key)) ||
+	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-Key-Name", s->key_type, sizeof(s->key_type))) {
 		radlog(L_ERR, "rlm_omapi: MEEEEH");
 		return RLM_MODULE_NOOP;
 	}
+	s->port = atoi(port_str);
 
-	radlog(L_INFO, "rlm_omapi: trying to add mapping %s = %s to %s:%s",
-			user_mac, user_ip, server, port_str);
+	radlog(L_INFO, "rlm_omapi: trying to add mapping %s = %s to %s:%d",
+			s->user_mac, s->user_ip, s->server, s->port);
 
 	/* establish OMAPI connection */
 
 	/* add/delete logic */
 
 	/* shut down connection, free objects */
+	free(s);
 
 	return RLM_MODULE_OK;
 }
