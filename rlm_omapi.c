@@ -21,6 +21,9 @@
 #include <freeradius-devel/radiusd.h>
 #include <freeradius-devel/modules.h>
 
+#include <omapip/result.h>
+#include <dhcpctl/dhcpctl.h>
+
 /*
  *	Define a structure for our module configuration.
  *
@@ -82,6 +85,8 @@ static int omapi_vp_getstring(VALUE_PAIR *check, const char *attr, char *buf, in
 
 static int omapi_add_dhcp_entry(struct omapi_server *s)
 {
+	if(dhcpctl_initialize() != ISC_R_SUCCESS)
+		return 0;
 	return 1;
 }
 
