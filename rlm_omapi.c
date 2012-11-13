@@ -1,8 +1,4 @@
 /*
- * rlm_example.c
- *
- * Version:	$Id$
- *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
  *   the Free Software Foundation; either version 2 of the License, or
@@ -18,12 +14,10 @@
  *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
  * Copyright 2000,2006  The FreeRADIUS server project
- * Copyright 2000  your name <your address>
+ * Copyright 2012  Julius Plenz, FU Berlin <plenz@cis.fu-berlin.de>
  */
 
 #include <freeradius-devel/ident.h>
-RCSID("$Id$")
-
 #include <freeradius-devel/radiusd.h>
 #include <freeradius-devel/modules.h>
 
@@ -232,3 +226,5 @@ module_t rlm_example = {
 		NULL			/* post-auth */
 	},
 };
+
+/* vim: set noet ts=8 sw=8: */
