@@ -85,8 +85,39 @@ static int omapi_vp_getstring(VALUE_PAIR *check, const char *attr, char *buf, in
 
 static int omapi_add_dhcp_entry(struct omapi_server *s)
 {
-	if(dhcpctl_initialize() != ISC_R_SUCCESS)
+	int res;
+	char lp[] = "rlm_omapi: omapi_add_dhcp_entry";
+	dhcpctl_handle connection;
+	dhcpctl_handle authenticator;
+
+	if((res = dhcpctl_initialize()) != ISC_R_SUCCESS) {
+		radlog(L_ERR, "%s: failed to dhcpctl_initialize(): %s", lp,
+				isc_result_totext(res));
 		return 0;
+	}
+
+	DEBUG("%s: creating authenticator for %s:%d, key %s(%s)", lp,
+			s->server, s->port, s->key_name, s->key_type);
+	authenticator = dhcpctl_null_handle;
+	res = dhcpctl_new_authenticator (&authenticator, s->key_name,
+			s->key_type, s->key, (unsigned) strlen(s->key) + 1);
+	if(res != ISC_R_SUCCESS) {
+		radlog(L_ERR, "%s: failed to create authenticator: %s", lp,
+				isc_result_totext(res));
+		return 0;
+	}
+
+	DEBUG("%s: connecting to %s:%d", lp, s->server, s->port);
+	memset (&connection, 0, sizeof(connection));
+	res = dhcpctl_connect(&connection, s->server, s->port, authenticator);
+	if(res != ISC_R_SUCCESS) {
+		radlog(L_ERR, "%s: failed to connect to %s:%d; error: %s", lp,
+				s->server, s->port, isc_result_totext(res));
+		return 0;
+	}
+
+	/* there is no dhcpctl_disconnect function */
+
 	return 1;
 }
 
@@ -111,7 +142,7 @@ static int omapi_post_auth(void *instance, REQUEST *request)
 	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-IP-Address", s->user_ip, sizeof(s->user_ip)) ||
 	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-Mac-Address", s->user_mac, sizeof(s->user_mac)) ||
 	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-Key", s->key, sizeof(s->key)) ||
-	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-Key-Name", s->key_type, sizeof(s->key_type))) {
+	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-Key-Name", s->key_name, sizeof(s->key_name))) {
 		radlog(L_ERR, "rlm_omapi: MEEEEH");
 		return RLM_MODULE_NOOP;
 	}
