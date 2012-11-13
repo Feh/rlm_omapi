@@ -75,9 +75,6 @@ static int omapi_vp_getstring(VALUE_PAIR *check, const char *attr, char *buf, in
 	return strlcpy(buf, vp->vp_strvalue, len);
 }
 
-/*
- *	Authenticate the user with the given password.
- */
 static int omapi_post_auth(void *instance, REQUEST *request)
 {
 	int port;
