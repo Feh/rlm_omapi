@@ -28,12 +28,12 @@
  *	a lot cleaner to do so, and a pointer to the structure can
  *	be used as the instance handle.
  */
-typedef struct rlm_example_t {
+typedef struct rlm_omapi_t {
 	int		boolean;
 	int		value;
 	char		*string;
 	uint32_t	ipaddr;
-} rlm_example_t;
+} rlm_omapi_t;
 
 /*
  *	A mapping of configuration file names to internal variables.
@@ -45,159 +45,20 @@ typedef struct rlm_example_t {
  *	buffer over-flows.
  */
 static const CONF_PARSER module_config[] = {
-  { "integer", PW_TYPE_INTEGER,    offsetof(rlm_example_t,value), NULL,   "1" },
-  { "boolean", PW_TYPE_BOOLEAN,    offsetof(rlm_example_t,boolean), NULL, "no"},
-  { "string",  PW_TYPE_STRING_PTR, offsetof(rlm_example_t,string), NULL,  NULL},
-  { "ipaddr",  PW_TYPE_IPADDR,     offsetof(rlm_example_t,ipaddr), NULL,  "*" },
-
   { NULL, -1, 0, NULL, NULL }		/* end the list */
 };
 
 
 /*
- *	Do any per-module initialization that is separate to each
- *	configured instance of the module.  e.g. set up connections
- *	to external databases, read configuration files, set up
- *	dictionary entries, etc.
- *
- *	If configuration information is given in the config section
- *	that must be referenced in later calls, store a handle to it
- *	in *instance otherwise put a null pointer there.
- */
-static int example_instantiate(CONF_SECTION *conf, void **instance)
-{
-	rlm_example_t *data;
-
-	/*
-	 *	Set up a storage area for instance data
-	 */
-	data = rad_malloc(sizeof(*data));
-	if (!data) {
-		return -1;
-	}
-	memset(data, 0, sizeof(*data));
-
-	/*
-	 *	If the configuration parameters can't be parsed, then
-	 *	fail.
-	 */
-	if (cf_section_parse(conf, data, module_config) < 0) {
-		free(data);
-		return -1;
-	}
-
-	*instance = data;
-
-	return 0;
-}
-
-/*
- *	Find the named user in this modules database.  Create the set
- *	of attribute-value pairs to check and reply with for this user
- *	from the database. The authentication code only needs to check
- *	the password, the rest is done here.
- */
-static int example_authorize(void *instance, REQUEST *request)
-{
-	VALUE_PAIR *state;
-	VALUE_PAIR *reply;
-
-	/* quiet the compiler */
-	instance = instance;
-	request = request;
-
-	/*
-	 *  Look for the 'state' attribute.
-	 */
-	state =  pairfind(request->packet->vps, PW_STATE);
-	if (state != NULL) {
-		RDEBUG("Found reply to access challenge");
-		return RLM_MODULE_OK;
-	}
-
-	/*
-	 *  Create the challenge, and add it to the reply.
-	 */
-       	reply = pairmake("Reply-Message", "This is a challenge", T_OP_EQ);
-	pairadd(&request->reply->vps, reply);
-	state = pairmake("State", "0", T_OP_EQ);
-	pairadd(&request->reply->vps, state);
-
-	/*
-	 *  Mark the packet as an Access-Challenge packet.
-	 *
-	 *  The server will take care of sending it to the user.
-	 */
-	request->reply->code = PW_ACCESS_CHALLENGE;
-	RDEBUG("Sending Access-Challenge.");
-
-	return RLM_MODULE_HANDLED;
-}
-
-/*
  *	Authenticate the user with the given password.
  */
-static int example_authenticate(void *instance, REQUEST *request)
+static int omapi_post_auth(void *instance, REQUEST *request)
 {
 	/* quiet the compiler */
 	instance = instance;
 	request = request;
 
 	return RLM_MODULE_OK;
-}
-
-/*
- *	Massage the request before recording it or proxying it
- */
-static int example_preacct(void *instance, REQUEST *request)
-{
-	/* quiet the compiler */
-	instance = instance;
-	request = request;
-
-	return RLM_MODULE_OK;
-}
-
-/*
- *	Write accounting information to this modules database.
- */
-static int example_accounting(void *instance, REQUEST *request)
-{
-	/* quiet the compiler */
-	instance = instance;
-	request = request;
-
-	return RLM_MODULE_OK;
-}
-
-/*
- *	See if a user is already logged in. Sets request->simul_count to the
- *	current session count for this user and sets request->simul_mpp to 2
- *	if it looks like a multilink attempt based on the requested IP
- *	address, otherwise leaves request->simul_mpp alone.
- *
- *	Check twice. If on the first pass the user exceeds his
- *	max. number of logins, do a second pass and validate all
- *	logins by querying the terminal server (using eg. SNMP).
- */
-static int example_checksimul(void *instance, REQUEST *request)
-{
-  instance = instance;
-
-  request->simul_count=0;
-
-  return RLM_MODULE_OK;
-}
-
-
-/*
- *	Only free memory we allocated.  The strings allocated via
- *	cf_section_parse() do not need to be freed.
- */
-static int example_detach(void *instance)
-{
-	free(instance);
-	return 0;
 }
 
 /*
@@ -209,21 +70,21 @@ static int example_detach(void *instance)
  *	The server will then take care of ensuring that the module
  *	is single-threaded.
  */
-module_t rlm_example = {
+module_t rlm_omapi = {
 	RLM_MODULE_INIT,
-	"example",
-	RLM_TYPE_THREAD_SAFE,		/* type */
-	example_instantiate,		/* instantiation */
-	example_detach,			/* detach */
+	"omapi",
+	RLM_TYPE_THREAD_UNSAFE,		/* type */
+	NULL,				/* instantiation */
+	NULL,				/* detach */
 	{
-		example_authenticate,	/* authentication */
-		example_authorize,	/* authorization */
-		example_preacct,	/* preaccounting */
-		example_accounting,	/* accounting */
-		example_checksimul,	/* checksimul */
+		NULL,			/* authentication */
+		NULL,			/* authorization */
+		NULL,			/* preaccounting */
+		NULL,			/* accounting */
+		NULL,			/* checksimul */
 		NULL,			/* pre-proxy */
 		NULL,			/* post-proxy */
-		NULL			/* post-auth */
+		omapi_post_auth		/* post-auth */
 	},
 };
 
