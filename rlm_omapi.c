@@ -29,10 +29,6 @@
  *	be used as the instance handle.
  */
 typedef struct rlm_omapi_t {
-	int		boolean;
-	int		value;
-	char		*string;
-	uint32_t	ipaddr;
 } rlm_omapi_t;
 
 /*
