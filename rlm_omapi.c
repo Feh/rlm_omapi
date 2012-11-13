@@ -83,7 +83,7 @@ static int omapi_vp_getstring(VALUE_PAIR *check, const char *attr, char *buf, in
 	return strlcpy(buf, vp->vp_strvalue, len);
 }
 
-static int omapi_add_dhcp_entry(struct omapi_server *s)
+static int omapi_add_dhcp_entry(const struct omapi_server *s)
 {
 	int res;
 	char lp[] = "rlm_omapi: omapi_add_dhcp_entry";
@@ -100,7 +100,8 @@ static int omapi_add_dhcp_entry(struct omapi_server *s)
 			s->server, s->port, s->key_name, s->key_type);
 	authenticator = dhcpctl_null_handle;
 	res = dhcpctl_new_authenticator (&authenticator, s->key_name,
-			s->key_type, s->key, (unsigned) strlen(s->key) + 1);
+			s->key_type, (const unsigned char *)s->key,
+			strlen(s->key) + 1);
 	if(res != ISC_R_SUCCESS) {
 		radlog(L_ERR, "%s: failed to create authenticator: %s", lp,
 				isc_result_totext(res));
