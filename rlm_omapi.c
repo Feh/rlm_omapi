@@ -85,10 +85,15 @@ static int omapi_vp_getstring(VALUE_PAIR *check, const char *attr, char *buf, in
 
 static int omapi_add_dhcp_entry(const struct omapi_server *s)
 {
-	int res;
+	isc_result_t res;
+	dhcpctl_status waitstatus;
+
 	char lp[] = "rlm_omapi: omapi_add_dhcp_entry";
+
 	dhcpctl_handle connection;
 	dhcpctl_handle authenticator;
+	dhcpctl_handle host;
+	dhcpctl_data_string identifier;
 
 	if((res = dhcpctl_initialize()) != ISC_R_SUCCESS) {
 		radlog(L_ERR, "%s: failed to dhcpctl_initialize(): %s", lp,
@@ -116,6 +121,54 @@ static int omapi_add_dhcp_entry(const struct omapi_server *s)
 				s->server, s->port, isc_result_totext(res));
 		return 0;
 	}
+
+	/* check if there's a host with the supplied mac address */
+
+	DEBUG("%s: searching for host with mac address '%s'", lp, s->user_mac);
+	memset (&host, 0, sizeof(host));
+	res = dhcpctl_new_object(&host, connection, "host");
+	if(res != ISC_R_SUCCESS) {
+		radlog(L_ERR, "%s: Failed to create 'host' object: %s", lp,
+				isc_result_totext(res));
+		return 0;
+	}
+
+	res = dhcpctl_set_string_value(host, s->user_host, "name");
+	dhcpctl_open_object (host, connection, 0); /* 0 = just query information */
+	if(res == ISC_R_SUCCESS)
+		radlog(L_INFO, "%s: successfully queued query, waiting for return", lp);
+	res = dhcpctl_wait_for_completion(host, &waitstatus);
+
+	if(res == ISC_R_SUCCESS) {
+		memset (&identifier, 0, sizeof(identifier));
+		res = dhcpctl_get_value(&identifier, host, "hardware-type");
+		if(res == ISC_R_SUCCESS && identifier->value[3] != 0x01) {
+			radlog(L_ERR, "%s: hardware address is not of type 1 (ethernet); aborting", lp);
+			dhcpctl_data_string_dereference(&identifier, MDL);
+		}
+		dhcpctl_data_string_dereference(&identifier, MDL);
+
+		memset (&identifier, 0, sizeof(identifier));
+		res = dhcpctl_get_value(&identifier, host, "hardware-address");
+		if(res == ISC_R_SUCCESS)
+			radlog(L_INFO, "%s: host is present with HW address "
+					"%02x:%02x:%02x:%02x:%02x:%02x", lp,
+					identifier->value[0], identifier->value[1],
+					identifier->value[2], identifier->value[3],
+					identifier->value[4], identifier->value[5]);
+		else
+			radlog(L_ERR, "%s: Failed to get hardware-address attribute: %s", lp,
+					isc_result_totext(res));
+		dhcpctl_data_string_dereference(&identifier, MDL);
+	} else {
+		if(waitstatus != ISC_R_SUCCESS)
+			radlog(L_INFO, "%s: could not find out about it: %s", lp,
+					isc_result_totext(waitstatus));
+		else
+			radlog(L_INFO, "%s: no host with MAC address %s present", lp, s->user_mac);
+	}
+
+	/* add or update new host entry */
 
 	/* there is no dhcpctl_disconnect function */
 
