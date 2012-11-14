@@ -24,6 +24,8 @@
 #include <omapip/result.h>
 #include <dhcpctl/dhcpctl.h>
 
+#include <netinet/ether.h>
+
 /*
  *	Define a structure for our module configuration.
  *
@@ -88,12 +90,16 @@ static int omapi_add_dhcp_entry(const struct omapi_server *s)
 	isc_result_t res;
 	dhcpctl_status waitstatus;
 
+	struct ether_addr mac;
+
+	char buf[1024];
 	char lp[] = "rlm_omapi: omapi_add_dhcp_entry";
 
 	dhcpctl_handle connection;
 	dhcpctl_handle authenticator;
 	dhcpctl_handle host;
 	dhcpctl_data_string identifier;
+	dhcpctl_data_string omapi_mac;
 
 	if((res = dhcpctl_initialize()) != ISC_R_SUCCESS) {
 		radlog(L_ERR, "%s: failed to dhcpctl_initialize(): %s", lp,
@@ -101,6 +107,7 @@ static int omapi_add_dhcp_entry(const struct omapi_server *s)
 		return 0;
 	}
 
+	/* Create authenticator */
 	DEBUG("%s: creating authenticator for %s:%d, key %s(%s)", lp,
 			s->server, s->port, s->key_name, s->key_type);
 	authenticator = dhcpctl_null_handle;
@@ -113,6 +120,7 @@ static int omapi_add_dhcp_entry(const struct omapi_server *s)
 		return 0;
 	}
 
+	/* Set up connection */
 	DEBUG("%s: connecting to %s:%d", lp, s->server, s->port);
 	memset (&connection, 0, sizeof(connection));
 	res = dhcpctl_connect(&connection, s->server, s->port, authenticator);
@@ -122,8 +130,7 @@ static int omapi_add_dhcp_entry(const struct omapi_server *s)
 		return 0;
 	}
 
-	/* check if there's a host with the supplied mac address */
-
+	/* create a host object */
 	DEBUG("%s: searching for host with mac address '%s'", lp, s->user_mac);
 	memset (&host, 0, sizeof(host));
 	res = dhcpctl_new_object(&host, connection, "host");
@@ -133,11 +140,15 @@ static int omapi_add_dhcp_entry(const struct omapi_server *s)
 		return 0;
 	}
 
-	res = dhcpctl_set_string_value(host, s->user_host, "name");
+	/* store MAC address in omapi string and assign it to host */
+	memset (&omapi_mac, 0, sizeof(omapi_mac));
+	omapi_data_string_new(&omapi_mac, sizeof(mac), MDL);
+	memcpy(omapi_mac->value, ether_aton_r(s->user_mac, &mac), sizeof(mac));
+	dhcpctl_set_value(host, omapi_mac, "hardware-address");
+
+	/* query the server */
 	dhcpctl_open_object (host, connection, 0); /* 0 = just query information */
-	if(res == ISC_R_SUCCESS)
-		radlog(L_INFO, "%s: successfully queued query, waiting for return", lp);
-	res = dhcpctl_wait_for_completion(host, &waitstatus);
+	waitstatus = dhcpctl_wait_for_completion(host, &res);
 
 	if(res == ISC_R_SUCCESS) {
 		memset (&identifier, 0, sizeof(identifier));
@@ -149,24 +160,49 @@ static int omapi_add_dhcp_entry(const struct omapi_server *s)
 		dhcpctl_data_string_dereference(&identifier, MDL);
 
 		memset (&identifier, 0, sizeof(identifier));
-		res = dhcpctl_get_value(&identifier, host, "hardware-address");
-		if(res == ISC_R_SUCCESS)
-			radlog(L_INFO, "%s: host is present with HW address "
-					"%02x:%02x:%02x:%02x:%02x:%02x", lp,
-					identifier->value[0], identifier->value[1],
-					identifier->value[2], identifier->value[3],
-					identifier->value[4], identifier->value[5]);
-		else
-			radlog(L_ERR, "%s: Failed to get hardware-address attribute: %s", lp,
-					isc_result_totext(res));
+		res = dhcpctl_get_value(&identifier, host, "name");
+		if(res == ISC_R_SUCCESS) {
+			strlcpy(buf, identifier->value, identifier->len + 1);
+			radlog(L_INFO, "%s: MAC %s is present with hostname '%s'", lp,
+					s->user_mac, buf);
+		}
 		dhcpctl_data_string_dereference(&identifier, MDL);
+
+		memset (&identifier, 0, sizeof(identifier));
+		res = dhcpctl_get_value(&identifier, host, "ip-address");
+		if(res == ISC_R_SUCCESS) {
+			inet_ntop(AF_INET, identifier->value, buf, sizeof(buf));
+			dhcpctl_data_string_dereference(&identifier, MDL);
+			radlog(L_INFO, "%s: MAC %s is present with IP address '%s'", lp,
+					s->user_mac, buf);
+			if(!strncmp(s->user_ip, buf, strlen(s->user_ip))) {
+				radlog(L_INFO, "%s: MAC %s: oldip='%s', newip='%s', "
+					"no update needed", lp, s->user_mac, s->user_ip, buf);
+				return 0;
+			}
+
+			/* IPs don't match. Delete the object from the server */
+			dhcpctl_object_remove(connection, host);
+			res = dhcpctl_wait_for_completion(host, &waitstatus);
+			if(res == ISC_R_SUCCESS) {
+				radlog(L_INFO, "%s: Deleted the object on server", lp);
+			} else {
+				radlog(L_ERR, "%s: Failed to delete 'host' object: %s", lp,
+					isc_result_totext(waitstatus == ISC_R_SUCCESS ? res : waitstatus));
+				return 1;
+			}
+		} else /* no success */
+			dhcpctl_data_string_dereference(&identifier, MDL);
 	} else {
 		if(waitstatus != ISC_R_SUCCESS)
-			radlog(L_INFO, "%s: could not find out about it: %s", lp,
+			radlog(L_INFO, "%s: could not connect: %s", lp,
 					isc_result_totext(waitstatus));
 		else
 			radlog(L_INFO, "%s: no host with MAC address %s present", lp, s->user_mac);
 	}
+
+	dhcpctl_data_string_dereference(&omapi_mac, MDL);
+	omapi_object_dereference(&host, MDL);
 
 	/* add or update new host entry */
 
