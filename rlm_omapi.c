@@ -51,7 +51,7 @@ struct omapi_server {
 	int port;
 	char server[1024];
 	char key[1024], key_name[1024], key_type[128];
-	char user_ip[1024], user_mac[1024];
+	char user_ip[1024], user_mac[1024], user_host[1024];
 };
 
 static int omapi_vp_getstring(VALUE_PAIR *check, const char *attr, char *buf, int len)
@@ -140,8 +140,9 @@ static int omapi_post_auth(void *instance, REQUEST *request)
 	VALUE_PAIR *rad_check = request->config_items;
 	if(!omapi_vp_getstring(rad_check, "Zedat-Omapi-Host", s->server, sizeof(s->server)) ||
 	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-Port", port_str, sizeof(port_str)) ||
-	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-IP-Address", s->user_ip, sizeof(s->user_ip)) ||
-	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-Mac-Address", s->user_mac, sizeof(s->user_mac)) ||
+	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-User-IP", s->user_ip, sizeof(s->user_ip)) ||
+	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-User-Mac", s->user_mac, sizeof(s->user_mac)) ||
+	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-User-Host", s->user_host, sizeof(s->user_host)) ||
 	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-Key", s->key, sizeof(s->key)) ||
 	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-Key-Name", s->key_name, sizeof(s->key_name))) {
 		radlog(L_ERR, "rlm_omapi: MEEEEH");
