@@ -295,6 +295,8 @@ cleanup:
 	omapi_disconnect(connection->outer->outer, 1);
 	omapi_object_dereference(&connection, MDL);
 
+	omapi_auth_key_dereference((struct auth_key *) &authenticator, MDL);
+
 	return ret;
 }
 
