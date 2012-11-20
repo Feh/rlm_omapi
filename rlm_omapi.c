@@ -26,6 +26,12 @@
 
 #include <netinet/ether.h>
 
+#define FAIL_CLEANUP(r) if(r != ISC_R_SUCCESS) { \
+		radlog(L_ERR, "rlm_omapi: error: %s", isc_result_totext(res)); \
+		ret = 0; \
+		goto cleanup; \
+	}
+
 /*
  *	Define a structure for our module configuration.
  *
@@ -154,9 +160,11 @@ static int omapi_add_dhcp_entry(const struct omapi_server *s)
 
 	/* store MAC address in omapi string and assign it to host object */
 	memset (&omapi_mac, 0, sizeof(omapi_mac));
-	omapi_data_string_new(&omapi_mac, sizeof(mac), MDL);
+	res = omapi_data_string_new(&omapi_mac, sizeof(mac), MDL);
+	FAIL_CLEANUP(res);
 	memcpy(omapi_mac->value, ether_aton_r(s->user_mac, &mac), sizeof(mac));
-	dhcpctl_set_value(host, omapi_mac, "hardware-address");
+	res = dhcpctl_set_value(host, omapi_mac, "hardware-address");
+	FAIL_CLEANUP(res);
 
 	/* query the server for an object matching this criterion */
 	dhcpctl_open_object (host, connection, 0); /* 0 = just query information */
@@ -222,19 +230,11 @@ static int omapi_add_dhcp_entry(const struct omapi_server *s)
 	DEBUG("%s: removing old entry for host %s...", lp, s->user_host);
 	memset (&host, 0, sizeof(host));
 	res = dhcpctl_new_object(&host, connection, "host");
-	if(res != ISC_R_SUCCESS) {
-		radlog(L_ERR, "%s: Failed to create 'host' object: %s", lp,
-				isc_result_totext(res));
-		ret = 0;
-		goto cleanup;
-	}
+	FAIL_CLEANUP(res);
+
 	res = dhcpctl_set_string_value(host, s->user_host, "name");
-	if(res != ISC_R_SUCCESS) {
-		radlog(L_ERR, "%s: Failed to add 'name' attribute: %s", lp,
-				isc_result_totext(res));
-		ret = 0;
-		goto cleanup;
-	}
+	FAIL_CLEANUP(res);
+
 	dhcpctl_open_object (host, connection, 0); /* 0 = just query information */
 	waitstatus = dhcpctl_wait_for_completion(host, &res);
 	if(res == ISC_R_SUCCESS) {
@@ -251,22 +251,21 @@ static int omapi_add_dhcp_entry(const struct omapi_server *s)
 	DEBUG("%s: adding new entry...", lp);
 	memset (&host, 0, sizeof(host));
 	res = dhcpctl_new_object(&host, connection, "host");
-	if(res != ISC_R_SUCCESS) {
-		radlog(L_ERR, "%s: Failed to create 'host' object: %s", lp,
-				isc_result_totext(res));
-		ret = 0;
-		goto cleanup;
-	}
+	FAIL_CLEANUP(res);
 
 	if(!!strcmp(s->user_ip, "0.0.0.0")) {
 		memset(&omapi_ip, 0, sizeof(omapi_ip));
 		res = omapi_data_string_new(&omapi_ip, sizeof(struct in_addr), MDL);
 		inet_aton(s->user_ip, (struct in_addr *) &(omapi_ip->value));
 
-		dhcpctl_set_string_value(host, s->user_host, "name");
-		dhcpctl_set_value(host, omapi_mac, "hardware-address");
-		dhcpctl_set_int_value(host, 1, "hardware-type");
-		dhcpctl_set_value(host, omapi_ip, "ip-address");
+		res = dhcpctl_set_string_value(host, s->user_host, "name");
+		FAIL_CLEANUP(res);
+		res = dhcpctl_set_value(host, omapi_mac, "hardware-address");
+		FAIL_CLEANUP(res);
+		res = dhcpctl_set_int_value(host, 1, "hardware-type");
+		FAIL_CLEANUP(res);
+		res = dhcpctl_set_value(host, omapi_ip, "ip-address");
+		FAIL_CLEANUP(res);
 
 		/* DHCPCTL_EXCL should be unnecessary here, but include it for safety */
 		dhcpctl_open_object (host, connection, DHCPCTL_CREATE | DHCPCTL_EXCL);
