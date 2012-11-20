@@ -162,7 +162,7 @@ static int omapi_add_dhcp_entry(const struct omapi_server *s)
 		memset (&identifier, 0, sizeof(identifier));
 		res = dhcpctl_get_value(&identifier, host, "name");
 		if(res == ISC_R_SUCCESS) {
-			strlcpy(buf, identifier->value, identifier->len + 1);
+			strlcpy(buf, (char *) identifier->value, identifier->len + 1);
 			radlog(L_INFO, "%s: MAC %s is present with hostname '%s'", lp,
 					s->user_mac, buf);
 		}
