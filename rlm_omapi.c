@@ -100,6 +100,7 @@ static int omapi_add_dhcp_entry(const struct omapi_server *s)
 	dhcpctl_handle host;
 	dhcpctl_data_string identifier;
 	dhcpctl_data_string omapi_mac;
+	dhcpctl_data_string omapi_ip;
 
 	if((res = dhcpctl_initialize()) != ISC_R_SUCCESS) {
 		radlog(L_ERR, "%s: failed to dhcpctl_initialize(): %s", lp,
@@ -201,10 +202,68 @@ static int omapi_add_dhcp_entry(const struct omapi_server *s)
 			radlog(L_INFO, "%s: no host with MAC address %s present", lp, s->user_mac);
 	}
 
-	dhcpctl_data_string_dereference(&omapi_mac, MDL);
 	omapi_object_dereference(&host, MDL);
 
-	/* remove old and add new host entry */
+	/* remove old host entry, if present */
+	DEBUG("%s: removing old entry for host %s...", lp, s->user_host);
+	memset (&host, 0, sizeof(host));
+	res = dhcpctl_new_object(&host, connection, "host");
+	if(res != ISC_R_SUCCESS) {
+		radlog(L_ERR, "%s: Failed to create 'host' object: %s", lp,
+				isc_result_totext(res));
+		return 0;
+	}
+	res = dhcpctl_set_string_value(host, s->user_host, "name");
+	if(res != ISC_R_SUCCESS) {
+		radlog(L_ERR, "%s: Failed to add 'name' attribute: %s", lp,
+				isc_result_totext(res));
+		return 0;
+	}
+	dhcpctl_open_object (host, connection, 0); /* 0 = just query information */
+	waitstatus = dhcpctl_wait_for_completion(host, &res);
+	if(res == ISC_R_SUCCESS) {
+		dhcpctl_object_remove(connection, host);
+		res = dhcpctl_wait_for_completion(host, &waitstatus);
+		if(res == ISC_R_SUCCESS)
+			radlog(L_INFO, "%s: Deleted the object with hostname '%s' on server",
+					lp, s->user_host);
+	}
+	/* omapi_mac will be used again, so it's dereferenced further down */
+	omapi_object_dereference(&host, MDL);
+
+	/* add new host entry in the final form */
+	DEBUG("%s: adding new entry...", lp);
+	memset (&host, 0, sizeof(host));
+	res = dhcpctl_new_object(&host, connection, "host");
+	if(res != ISC_R_SUCCESS) {
+		radlog(L_ERR, "%s: Failed to create 'host' object: %s", lp,
+				isc_result_totext(res));
+		return 0;
+	}
+
+	memset(&omapi_ip, 0, sizeof(omapi_ip));
+	res = omapi_data_string_new(&omapi_ip, sizeof(struct in_addr), MDL);
+	inet_aton(s->user_ip, (struct in_addr *) &(omapi_ip->value));
+
+	dhcpctl_set_string_value(host, s->user_host, "name");
+	dhcpctl_set_value(host, omapi_mac, "hardware-address");
+	dhcpctl_set_int_value(host, 1, "hardware-type");
+	dhcpctl_set_value(host, omapi_ip, "ip-address");
+
+	dhcpctl_open_object (host, connection, DHCPCTL_CREATE | DHCPCTL_EXCL);
+	/* DHCPCTL_EXCL should be unnecessary here, but include it for safety */
+	waitstatus = dhcpctl_wait_for_completion(host, &res);
+	if(res == ISC_R_SUCCESS) {
+		radlog(L_INFO, "%s: successfully added mapping %s = %s = %s",
+				lp, s->user_host, s->user_ip, s->user_mac);
+	} else if(waitstatus == ISC_R_SUCCESS) {
+		radlog(L_INFO, "%s: could not create new host: %s",
+				lp, isc_result_totext(waitstatus));
+	}
+
+	dhcpctl_data_string_dereference(&omapi_mac, MDL);
+	dhcpctl_data_string_dereference(&omapi_ip, MDL);
+	omapi_object_dereference(&host, MDL);
 
 	/* there is no dhcpctl_disconnect function */
 
