@@ -56,6 +56,22 @@ struct omapi_server {
 	char user_ip[1024], user_mac[1024], user_host[1024];
 };
 
+static int omapi_instantiate(CONF_SECTION *conf, void **instance)
+{
+	isc_result_t res;
+
+	conf = conf;
+	instance = instance;
+
+	if((res = dhcpctl_initialize()) != ISC_R_SUCCESS) {
+		radlog(L_ERR, "rlm_omapi: failed to dhcpctl_initialize(): %s",
+				isc_result_totext(res));
+		return -1;
+	}
+	return 0;
+
+}
+
 static int omapi_vp_getstring(VALUE_PAIR *check, const char *attr, char *buf, int len)
 {
 	char lp[] = "rlm_omapi: omapi_vp_getstring";
@@ -102,12 +118,6 @@ static int omapi_add_dhcp_entry(const struct omapi_server *s)
 	dhcpctl_data_string identifier;
 	dhcpctl_data_string omapi_mac;
 	dhcpctl_data_string omapi_ip;
-
-	if((res = dhcpctl_initialize()) != ISC_R_SUCCESS) {
-		radlog(L_ERR, "%s: failed to dhcpctl_initialize(): %s", lp,
-				isc_result_totext(res));
-		return 0;
-	}
 
 	/* Create authenticator */
 	DEBUG("%s: creating authenticator for %s:%d, key %s(%s)", lp,
@@ -345,7 +355,7 @@ module_t rlm_omapi = {
 	RLM_MODULE_INIT,
 	"omapi",
 	RLM_TYPE_THREAD_UNSAFE,		/* type */
-	NULL,				/* instantiation */
+	omapi_instantiate,		/* instantiation */
 	NULL,				/* detach */
 	{
 		NULL,			/* authentication */
