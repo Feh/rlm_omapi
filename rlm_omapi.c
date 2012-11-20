@@ -32,29 +32,6 @@
 		goto cleanup; \
 	}
 
-/*
- *	Define a structure for our module configuration.
- *
- *	These variables do not need to be in a structure, but it's
- *	a lot cleaner to do so, and a pointer to the structure can
- *	be used as the instance handle.
- */
-typedef struct rlm_omapi_t {
-} rlm_omapi_t;
-
-/*
- *	A mapping of configuration file names to internal variables.
- *
- *	Note that the string is dynamically allocated, so it MUST
- *	be freed.  When the configuration file parse re-reads the string,
- *	it free's the old one, and strdup's the new one, placing the pointer
- *	to the strdup'd string into 'config.string'.  This gets around
- *	buffer over-flows.
- */
-static const CONF_PARSER module_config[] = {
-  { NULL, -1, 0, NULL, NULL }		/* end the list */
-};
-
 struct omapi_server {
 	int port;
 	char server[1024];
@@ -66,6 +43,7 @@ static int omapi_instantiate(CONF_SECTION *conf, void **instance)
 {
 	isc_result_t res;
 
+	/* quiet the compiler */
 	conf = conf;
 	instance = instance;
 
