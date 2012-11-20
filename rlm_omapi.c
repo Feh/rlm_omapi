@@ -140,13 +140,13 @@ static int omapi_add_dhcp_entry(const struct omapi_server *s)
 		return 0;
 	}
 
-	/* store MAC address in omapi string and assign it to host */
+	/* store MAC address in omapi string and assign it to host object */
 	memset (&omapi_mac, 0, sizeof(omapi_mac));
 	omapi_data_string_new(&omapi_mac, sizeof(mac), MDL);
 	memcpy(omapi_mac->value, ether_aton_r(s->user_mac, &mac), sizeof(mac));
 	dhcpctl_set_value(host, omapi_mac, "hardware-address");
 
-	/* query the server */
+	/* query the server for an object matching this criterion */
 	dhcpctl_open_object (host, connection, 0); /* 0 = just query information */
 	waitstatus = dhcpctl_wait_for_completion(host, &res);
 
@@ -204,7 +204,7 @@ static int omapi_add_dhcp_entry(const struct omapi_server *s)
 	dhcpctl_data_string_dereference(&omapi_mac, MDL);
 	omapi_object_dereference(&host, MDL);
 
-	/* add or update new host entry */
+	/* remove old and add new host entry */
 
 	/* there is no dhcpctl_disconnect function */
 
