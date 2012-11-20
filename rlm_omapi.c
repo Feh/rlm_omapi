@@ -241,28 +241,35 @@ static int omapi_add_dhcp_entry(const struct omapi_server *s)
 		return 0;
 	}
 
-	memset(&omapi_ip, 0, sizeof(omapi_ip));
-	res = omapi_data_string_new(&omapi_ip, sizeof(struct in_addr), MDL);
-	inet_aton(s->user_ip, (struct in_addr *) &(omapi_ip->value));
+	if(!!strcmp(s->user_ip, "0.0.0.0")) {
+		memset(&omapi_ip, 0, sizeof(omapi_ip));
+		res = omapi_data_string_new(&omapi_ip, sizeof(struct in_addr), MDL);
+		inet_aton(s->user_ip, (struct in_addr *) &(omapi_ip->value));
 
-	dhcpctl_set_string_value(host, s->user_host, "name");
-	dhcpctl_set_value(host, omapi_mac, "hardware-address");
-	dhcpctl_set_int_value(host, 1, "hardware-type");
-	dhcpctl_set_value(host, omapi_ip, "ip-address");
+		dhcpctl_set_string_value(host, s->user_host, "name");
+		dhcpctl_set_value(host, omapi_mac, "hardware-address");
+		dhcpctl_set_int_value(host, 1, "hardware-type");
+		dhcpctl_set_value(host, omapi_ip, "ip-address");
 
-	dhcpctl_open_object (host, connection, DHCPCTL_CREATE | DHCPCTL_EXCL);
-	/* DHCPCTL_EXCL should be unnecessary here, but include it for safety */
-	waitstatus = dhcpctl_wait_for_completion(host, &res);
-	if(res == ISC_R_SUCCESS) {
-		radlog(L_INFO, "%s: successfully added mapping %s = %s = %s",
-				lp, s->user_host, s->user_ip, s->user_mac);
-	} else if(waitstatus == ISC_R_SUCCESS) {
-		radlog(L_INFO, "%s: could not create new host: %s",
-				lp, isc_result_totext(waitstatus));
+		/* DHCPCTL_EXCL should be unnecessary here, but include it for safety */
+		dhcpctl_open_object (host, connection, DHCPCTL_CREATE | DHCPCTL_EXCL);
+		waitstatus = dhcpctl_wait_for_completion(host, &res);
+
+		if(res == ISC_R_SUCCESS) {
+			radlog(L_INFO, "%s: successfully added mapping %s = %s = %s",
+					lp, s->user_host, s->user_ip, s->user_mac);
+		} else if(waitstatus == ISC_R_SUCCESS) {
+			radlog(L_ERR, "%s: could not create new host: %s",
+					lp, isc_result_totext(waitstatus));
+		} else {
+			radlog(L_ERR, "%s: connection failed: %s",
+					lp, isc_result_totext(waitstatus));
+		}
+
+		dhcpctl_data_string_dereference(&omapi_ip, MDL);
 	}
 
 	dhcpctl_data_string_dereference(&omapi_mac, MDL);
-	dhcpctl_data_string_dereference(&omapi_ip, MDL);
 	omapi_object_dereference(&host, MDL);
 
 	/* there is no dhcpctl_disconnect function */
@@ -298,8 +305,8 @@ static int omapi_post_auth(void *instance, REQUEST *request)
 	}
 	s->port = atoi(port_str);
 
-	radlog(L_INFO, "rlm_omapi: trying to add mapping %s = %s to %s:%d",
-			s->user_mac, s->user_ip, s->server, s->port);
+	radlog(L_INFO, "rlm_omapi: trying to add mapping %s = %s = %s to %s:%d",
+			s->user_host, s->user_ip, s->user_mac, s->server, s->port);
 
 	/* call OMAPI */
 	if(!omapi_add_dhcp_entry(s)) {
