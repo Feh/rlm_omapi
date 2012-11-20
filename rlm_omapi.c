@@ -87,6 +87,7 @@ static int omapi_vp_getstring(VALUE_PAIR *check, const char *attr, char *buf, in
 
 static int omapi_add_dhcp_entry(const struct omapi_server *s)
 {
+	int ret = 1;
 	isc_result_t res;
 	dhcpctl_status waitstatus;
 
@@ -163,7 +164,8 @@ static int omapi_add_dhcp_entry(const struct omapi_server *s)
 		memset (&identifier, 0, sizeof(identifier));
 		res = dhcpctl_get_value(&identifier, host, "name");
 		if(res == ISC_R_SUCCESS) {
-			strlcpy(buf, (char *) identifier->value, identifier->len + 1);
+			strncpy(buf, (char *) identifier->value, identifier->len);
+			buf[identifier->len] = '\0';
 			radlog(L_INFO, "%s: MAC %s is present with hostname '%s'", lp,
 					s->user_mac, buf);
 		}
@@ -179,7 +181,8 @@ static int omapi_add_dhcp_entry(const struct omapi_server *s)
 			if(!strncmp(s->user_ip, buf, strlen(s->user_ip))) {
 				radlog(L_INFO, "%s: MAC %s: oldip='%s', newip='%s', "
 					"no update needed", lp, s->user_mac, s->user_ip, buf);
-				return 0;
+				ret = 0;
+				goto cleanup;
 			}
 
 			/* IPs don't match. Delete the object from the server */
@@ -190,7 +193,8 @@ static int omapi_add_dhcp_entry(const struct omapi_server *s)
 			} else {
 				radlog(L_ERR, "%s: Failed to delete 'host' object: %s", lp,
 					isc_result_totext(waitstatus == ISC_R_SUCCESS ? res : waitstatus));
-				return 1;
+				ret = 1;
+				goto cleanup;
 			}
 		} else /* no success */
 			dhcpctl_data_string_dereference(&identifier, MDL);
@@ -211,13 +215,15 @@ static int omapi_add_dhcp_entry(const struct omapi_server *s)
 	if(res != ISC_R_SUCCESS) {
 		radlog(L_ERR, "%s: Failed to create 'host' object: %s", lp,
 				isc_result_totext(res));
-		return 0;
+		ret = 0;
+		goto cleanup;
 	}
 	res = dhcpctl_set_string_value(host, s->user_host, "name");
 	if(res != ISC_R_SUCCESS) {
 		radlog(L_ERR, "%s: Failed to add 'name' attribute: %s", lp,
 				isc_result_totext(res));
-		return 0;
+		ret = 0;
+		goto cleanup;
 	}
 	dhcpctl_open_object (host, connection, 0); /* 0 = just query information */
 	waitstatus = dhcpctl_wait_for_completion(host, &res);
@@ -238,7 +244,8 @@ static int omapi_add_dhcp_entry(const struct omapi_server *s)
 	if(res != ISC_R_SUCCESS) {
 		radlog(L_ERR, "%s: Failed to create 'host' object: %s", lp,
 				isc_result_totext(res));
-		return 0;
+		ret = 0;
+		goto cleanup;
 	}
 
 	if(!!strcmp(s->user_ip, "0.0.0.0")) {
@@ -269,12 +276,16 @@ static int omapi_add_dhcp_entry(const struct omapi_server *s)
 		dhcpctl_data_string_dereference(&omapi_ip, MDL);
 	}
 
+cleanup:
 	dhcpctl_data_string_dereference(&omapi_mac, MDL);
 	omapi_object_dereference(&host, MDL);
 
-	/* there is no dhcpctl_disconnect function */
+	/* there is no dhcpctl_disconnect function. Instead, manually
+	 * disconnect the OMAPI objects */
+	omapi_disconnect(connection->outer->outer, 1);
+	omapi_object_dereference(&connection, MDL);
 
-	return 1;
+	return ret;
 }
 
 static int omapi_post_auth(void *instance, REQUEST *request)
