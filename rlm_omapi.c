@@ -322,6 +322,7 @@ static int omapi_post_auth(void *instance, REQUEST *request)
 	/* call OMAPI */
 	if(!omapi_add_dhcp_entry(s)) {
 		radlog(L_ERR, "rlm_omapi: Host is up to date or an error occured, returning noop");
+		free(s);
 		return RLM_MODULE_NOOP;
 	}
 
