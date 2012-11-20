@@ -72,11 +72,11 @@ static int omapi_vp_getstring(VALUE_PAIR *check, const char *attr, char *buf, in
 	DEBUG("%s: looking up vp with attribute %s", lp, attr);
 	vp = pairfind(check, dattr->attr);
 	if(!vp) {
-		radlog(L_INFO, "%s: %s not found!", lp, attr);
+		DEBUG("%s: %s not found!", lp, attr);
 		return 0;
 	}
 
-	radlog(L_INFO, "%s: Found vp: %s = '%s'", lp, attr, vp->vp_strvalue);
+	DEBUG("%s: Found vp: %s = '%s'", lp, attr, vp->vp_strvalue);
 	if(!vp->vp_strvalue) {
 		radlog(L_ERR, "%s: attribute %s is not of type 'string'!", lp, attr);
 		return 0;
@@ -162,7 +162,7 @@ static int omapi_add_dhcp_entry(const struct omapi_server *s)
 		if(res == ISC_R_SUCCESS) {
 			strncpy(buf, (char *) identifier->value, identifier->len);
 			buf[identifier->len] = '\0';
-			radlog(L_INFO, "%s: MAC %s is present with hostname '%s'", lp,
+			DEBUG("%s: MAC %s is present with hostname '%s'", lp,
 					s->user_mac, buf);
 		}
 		dhcpctl_data_string_dereference(&identifier, MDL);
@@ -172,10 +172,10 @@ static int omapi_add_dhcp_entry(const struct omapi_server *s)
 		if(res == ISC_R_SUCCESS) {
 			inet_ntop(AF_INET, identifier->value, buf, sizeof(buf));
 			dhcpctl_data_string_dereference(&identifier, MDL);
-			radlog(L_INFO, "%s: MAC %s is present with IP address '%s'", lp,
+			DEBUG("%s: MAC %s is present with IP address '%s'", lp,
 					s->user_mac, buf);
 			if(!strncmp(s->user_ip, buf, strlen(s->user_ip))) {
-				radlog(L_INFO, "%s: MAC %s: oldip='%s', newip='%s', "
+				DEBUG("%s: MAC %s: oldip='%s', newip='%s', "
 					"no update needed", lp, s->user_mac, s->user_ip, buf);
 				ret = 0;
 				goto cleanup;
@@ -185,7 +185,7 @@ static int omapi_add_dhcp_entry(const struct omapi_server *s)
 			dhcpctl_object_remove(connection, host);
 			res = dhcpctl_wait_for_completion(host, &waitstatus);
 			if(res == ISC_R_SUCCESS) {
-				radlog(L_INFO, "%s: Deleted the object on server", lp);
+				DEBUG("%s: Deleted the object on server", lp);
 			} else {
 				radlog(L_ERR, "%s: Failed to delete 'host' object: %s", lp,
 					isc_result_totext(waitstatus == ISC_R_SUCCESS ? res : waitstatus));
@@ -194,12 +194,11 @@ static int omapi_add_dhcp_entry(const struct omapi_server *s)
 			}
 		} else /* no success */
 			dhcpctl_data_string_dereference(&identifier, MDL);
+	} else if(waitstatus != ISC_R_SUCCESS) {
+		DEBUG("%s: could not connect: %s", lp,
+				isc_result_totext(waitstatus));
 	} else {
-		if(waitstatus != ISC_R_SUCCESS)
-			radlog(L_INFO, "%s: could not connect: %s", lp,
-					isc_result_totext(waitstatus));
-		else
-			radlog(L_INFO, "%s: no host with MAC address %s present", lp, s->user_mac);
+		DEBUG("%s: no host with MAC address %s present", lp, s->user_mac);
 	}
 
 	omapi_object_dereference(&host, MDL);
@@ -219,7 +218,7 @@ static int omapi_add_dhcp_entry(const struct omapi_server *s)
 		dhcpctl_object_remove(connection, host);
 		res = dhcpctl_wait_for_completion(host, &waitstatus);
 		if(res == ISC_R_SUCCESS)
-			radlog(L_INFO, "%s: Deleted the object with hostname '%s' on server",
+			DEBUG("%s: Deleted the object with hostname '%s' on server",
 					lp, s->user_host);
 	}
 	/* omapi_mac will be used again, so it's dereferenced further down */
@@ -250,7 +249,7 @@ static int omapi_add_dhcp_entry(const struct omapi_server *s)
 		waitstatus = dhcpctl_wait_for_completion(host, &res);
 
 		if(res == ISC_R_SUCCESS) {
-			radlog(L_INFO, "%s: successfully added mapping %s = %s = %s",
+			DEBUG("%s: successfully added mapping %s = %s = %s",
 					lp, s->user_host, s->user_ip, s->user_mac);
 		} else if(waitstatus == ISC_R_SUCCESS) {
 			radlog(L_ERR, "%s: could not create new host: %s",
@@ -305,12 +304,12 @@ static int omapi_post_auth(void *instance, REQUEST *request)
 	}
 	s->port = atoi(port_str);
 
-	radlog(L_INFO, "rlm_omapi: trying to add mapping %s = %s = %s to %s:%d",
+	DEBUG("rlm_omapi: trying to add mapping %s = %s = %s to %s:%d",
 			s->user_host, s->user_ip, s->user_mac, s->server, s->port);
 
 	/* call OMAPI */
 	if(!omapi_add_dhcp_entry(s)) {
-		radlog(L_ERR, "rlm_omapi: Host is up to date or an error occured, returning noop");
+		DEBUG("rlm_omapi: Host is up to date or an error occured, returning noop");
 		free(s);
 		return RLM_MODULE_NOOP;
 	}
