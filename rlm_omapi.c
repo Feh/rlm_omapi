@@ -56,7 +56,8 @@ static int omapi_instantiate(CONF_SECTION *conf, void **instance)
 
 }
 
-static int omapi_vp_getstring(VALUE_PAIR *check, const char *attr, char *buf, int len)
+static int omapi_vp_getstring(VALUE_PAIR *check, const char *attr, char *buf,
+		int len, int notfounderr)
 {
 	char lp[] = "rlm_omapi: omapi_vp_getstring";
 	VALUE_PAIR *vp;
@@ -72,7 +73,8 @@ static int omapi_vp_getstring(VALUE_PAIR *check, const char *attr, char *buf, in
 	DEBUG("%s: looking up vp with attribute %s", lp, attr);
 	vp = pairfind(check, dattr->attr);
 	if(!vp) {
-		radlog(L_ERR, "%s: %s not found!", lp, attr);
+		if(notfounderr)
+			radlog(L_ERR, "%s: %s not found!", lp, attr);
 		return 0;
 	}
 
@@ -298,17 +300,17 @@ static int omapi_post_auth(void *instance, REQUEST *request)
 	VALUE_PAIR *rad_check = request->config_items;
 
 	/* sanity check: we wouldn't even know where to connect to; silently ignore */
-	if(!omapi_vp_getstring(rad_check, "Zedat-Omapi-Host", s->server, sizeof(s->server))) {
+	if(!omapi_vp_getstring(rad_check, "Zedat-Omapi-Host", s->server, sizeof(s->server), 0)) {
 		DEBUG("rlm_omapi: No Zedat-Omapi-Host specified, fallthrough");
 		return RLM_MODULE_NOOP;
 	}
 
-	if(!omapi_vp_getstring(rad_check, "Zedat-Omapi-Port", port_str, sizeof(port_str)) ||
-	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-User-IP", s->user_ip, sizeof(s->user_ip)) ||
-	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-User-Mac", s->user_mac, sizeof(s->user_mac)) ||
-	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-User-Host", s->user_host, sizeof(s->user_host)) ||
-	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-Key", s->key, sizeof(s->key)) ||
-	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-Key-Name", s->key_name, sizeof(s->key_name))) {
+	if(!omapi_vp_getstring(rad_check, "Zedat-Omapi-Port", port_str, sizeof(port_str), 1) ||
+	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-User-IP", s->user_ip, sizeof(s->user_ip), 1) ||
+	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-User-Mac", s->user_mac, sizeof(s->user_mac), 1) ||
+	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-User-Host", s->user_host, sizeof(s->user_host), 1) ||
+	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-Key", s->key, sizeof(s->key), 1) ||
+	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-Key-Name", s->key_name, sizeof(s->key_name), 1)) {
 		radlog(L_ERR, "rlm_omapi: At least one of the Zedat-Omapi-* keys are missing!");
 		return RLM_MODULE_NOOP;
 	}
