@@ -72,7 +72,7 @@ static int omapi_vp_getstring(VALUE_PAIR *check, const char *attr, char *buf, in
 	DEBUG("%s: looking up vp with attribute %s", lp, attr);
 	vp = pairfind(check, dattr->attr);
 	if(!vp) {
-		DEBUG("%s: %s not found!", lp, attr);
+		radlog(L_ERR, "%s: %s not found!", lp, attr);
 		return 0;
 	}
 
