@@ -283,9 +283,9 @@ cleanup:
 static int omapi_post_auth(void *instance, REQUEST *request)
 {
 	char port_str[8];
-	struct omapi_server *s;
+	struct omapi_server server;
+	struct omapi_server *s = &server;
 
-	s = rad_malloc(sizeof(*s));
 	memset(s, 0, sizeof(s));
 	strcpy(s->key_type, "hmac-md5"); /* hard-coded for now */
 
@@ -304,7 +304,6 @@ static int omapi_post_auth(void *instance, REQUEST *request)
 	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-Key", s->key, sizeof(s->key)) ||
 	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-Key-Name", s->key_name, sizeof(s->key_name))) {
 		radlog(L_ERR, "rlm_omapi: At least one of the Zedat-Omapi-* keys are missing!");
-		free(s);
 		return RLM_MODULE_NOOP;
 	}
 	s->port = atoi(port_str);
@@ -315,12 +314,8 @@ static int omapi_post_auth(void *instance, REQUEST *request)
 	/* call OMAPI */
 	if(!omapi_add_dhcp_entry(s)) {
 		DEBUG("rlm_omapi: Host is up to date or an error occured, returning noop");
-		free(s);
 		return RLM_MODULE_NOOP;
 	}
-
-	/* free objects */
-	free(s);
 
 	return RLM_MODULE_OK;
 }
