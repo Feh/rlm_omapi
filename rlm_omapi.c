@@ -303,7 +303,8 @@ static int omapi_post_auth(void *instance, REQUEST *request)
 	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-User-Host", s->user_host, sizeof(s->user_host)) ||
 	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-Key", s->key, sizeof(s->key)) ||
 	   !omapi_vp_getstring(rad_check, "Zedat-Omapi-Key-Name", s->key_name, sizeof(s->key_name))) {
-		radlog(L_ERR, "rlm_omapi: MEEEEH");
+		radlog(L_ERR, "rlm_omapi: At least one of the Zedat-Omapi-* keys are missing!");
+		free(s);
 		return RLM_MODULE_NOOP;
 	}
 	s->port = atoi(port_str);
