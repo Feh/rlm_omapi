@@ -277,6 +277,11 @@ cleanup:
 	omapi_disconnect(connection->outer->outer, 1);
 	omapi_object_dereference(&connection, MDL);
 
+	/* This cast will give a warning strangely cannot be quieted by
+	 * explicitly casting to the wanted type (struct omapi_auth_key_t **).
+	 * However, ISC DHCP's `dhcpctl/remote.c` passes a `struct auth_key *`,
+	 * too. So I hope this is okay.
+	 */
 	omapi_auth_key_dereference((struct auth_key *) &authenticator, MDL);
 
 	return ret;
