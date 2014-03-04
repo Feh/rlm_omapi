@@ -2,3 +2,6 @@
 *.o
 .*.sw[po]
 .libs/
+.*.sw[opn]
+isc-dhcp*
+dhcp-*
