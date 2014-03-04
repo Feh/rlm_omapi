@@ -1,6 +1,0 @@
-#!/bin/sh
-
-rm -vf ~/server/lib/rlm_omapi* &&
-make clean &&
-make &&
-make install
