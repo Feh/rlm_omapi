@@ -61,7 +61,7 @@ static int omapi_vp_getstring(VALUE_PAIR *check, const char *attr, char *buf,
 {
 	char lp[] = "rlm_omapi: omapi_vp_getstring";
 	VALUE_PAIR *vp;
-	DICT_ATTR *dattr;
+	DICT_ATTR const *dattr;
 
 	DEBUG("%s: looking up attribute number for '%s'", lp, attr);
 	dattr = dict_attrbyname(attr);
