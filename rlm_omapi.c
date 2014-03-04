@@ -17,7 +17,7 @@
  * Copyright 2012  Julius Plenz, FU Berlin <plenz@cis.fu-berlin.de>
  */
 
-#include <freeradius-devel/ident.h>
+#include <freeradius-devel/build.h>
 #include <freeradius-devel/radiusd.h>
 #include <freeradius-devel/modules.h>
 
@@ -39,7 +39,7 @@ struct omapi_server {
 	char user_ip[1024], user_mac[1024], user_host[1024];
 };
 
-static int omapi_instantiate(CONF_SECTION *conf, void **instance)
+static int omapi_instantiate(CONF_SECTION *conf, void *instance)
 {
 	isc_result_t res;
 
@@ -71,7 +71,7 @@ static int omapi_vp_getstring(VALUE_PAIR *check, const char *attr, char *buf,
 	}
 
 	DEBUG("%s: looking up vp with attribute %s", lp, attr);
-	vp = pairfind(check, dattr->attr);
+	vp = pairfind(check, dattr->attr, 0, TAG_ANY);
 	if(!vp) {
 		if(notfounderr)
 			radlog(L_ERR, "%s: %s not found!", lp, attr);
@@ -282,7 +282,7 @@ cleanup:
 	return ret;
 }
 
-static int omapi_post_auth(void *instance, REQUEST *request)
+static rlm_rcode_t omapi_post_auth(void *instance, REQUEST *request)
 {
 	char port_str[8];
 	struct omapi_server server;
@@ -341,6 +341,8 @@ module_t rlm_omapi = {
 	RLM_MODULE_INIT,
 	"omapi",
 	RLM_TYPE_THREAD_UNSAFE,		/* type */
+	0,				/* sizeof(rlm_omapi_t) */
+	NULL,				/* module config struct */
 	omapi_instantiate,		/* instantiation */
 	NULL,				/* detach */
 	{
