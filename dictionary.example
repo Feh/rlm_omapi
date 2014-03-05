@@ -1,0 +1,9 @@
+ATTRIBUTE	Zedat-Omapi-Host			187	string
+ATTRIBUTE	Zedat-Omapi-Port			188	string
+ATTRIBUTE	Zedat-Omapi-Key				189	string
+ATTRIBUTE	Zedat-Omapi-Key-Name			190	string
+ATTRIBUTE	Zedat-Omapi-User-Mac			191	string
+ATTRIBUTE	Zedat-Omapi-User-IP			192	string
+ATTRIBUTE	Zedat-Omapi-User-Host			193	string
+
+# vim:set noet ts=8 ts=8 sw=8:
