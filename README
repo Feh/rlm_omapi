@@ -1,34 +1,46 @@
 Cloning the module in the FreeRADIUS source tree
 ================================================
 
-For the new build system you'll have to clone this repository as a submodule in
-the FreeRADIUS source tree at `src/modules/rlm_omapi`, as such:
+For the new build system you'll have to clone this repository as a
+submodule in the FreeRADIUS source tree at `src/modules/rlm_omapi`, as
+such:
 
     $ cd ~/src/freeradius
     $ git clone ... src/modules/rlm_omapi
     $ cd !$
 
-Compiling `rlm_omapi`
+Preparing `rlm_omapi`
 =====================
 
-The `rlm_omapi` module needs several libraries from ISC's DHCP daemon. Get the
-latest source tarball from <https://www.isc.org/downloads/> and extract it to a
-subdirectory `isc-dhcp/`, e.g.:
+The `rlm_omapi` module needs several libraries from ISC's DHCP daemon.
+Included in this repository is a script, `bootstrap.sh`, that will do
+all of this automatically for you:
+
+    $ ./bootstrap.sh
+    $ ./bootstrap.sh 4.2.0  # If you prefer a different version
+
+Once you're done, skip to the section "Compiling `rlm_omapi`". If you
+want to do the steps manually, proceed as follows: Get the latest
+source tarball from <https://www.isc.org/downloads/> and extract it to
+a subdirectory `isc-dhcp/`, e.g.:
 
     $ wget -O isc-dhcp.tar.gz http://www.isc.org/downloads/file/dhcp-4-3-0b1/\?version=tar.gz
     $ tar xfv isc-dhcp.tar.gz
     $ ln -s dhcp-4.3.0 isc-dhcp
 
-Then, compile the necessary libraries. Be sure to export the CFLAGS or make the
-library code relocatable in another way!
+Then, compile the necessary libraries. Be sure to export the `CFLAGS`
+or make the library code relocatable in another way!
 
     $ cd isc-dhcp/
     $ export CFLAGS="-fPIC"
-    $ ./configure --disable-dhcpv6
+    $ ./configure
     $ make
 
+Compiling `rlm_omapi`
+=====================
+
 Now, you can compile the module. Change to the top-level directory of
-FreeRADIUS and simply type "make":
+FreeRADIUS and simply type `make`:
 
     $ make
     CC src/modules/rlm_omapi/rlm_omapi.c
