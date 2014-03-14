@@ -49,11 +49,22 @@ FreeRADIUS and simply type `make`:
 Configuring the module
 ======================
 
-There is no configuration:
+There is no configuration per se:
 
     $ cat ~/server/etc/mods-enabled/omapi
     omapi {
     }
+
+But you will need to define the attributes that will be used by this
+module in a dictionary somewhere. You could simply include the
+`dictionary.example` somewhere in your global dictionary:
+
+    $ grep omapi etc/dictionary
+    $INCLUDE        ../share/freeradius/dictionary.zedat.omapi
+
+Of course, you are free to edit the number of the attributes as you
+wish. If you change the names, don't forget to also make the change in
+the `rlm_omapi.c` file, accordingly.
 
 Configuring the DHCP server
 ===========================
