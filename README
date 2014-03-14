@@ -8,8 +8,8 @@ the FreeRADIUS source tree at `src/modules/rlm_omapi`, as such:
     $ git clone ... src/modules/rlm_omapi
     $ cd !$
 
-Compiling rlm_omapi
-===================
+Compiling `rlm_omapi`
+=====================
 
 The `rlm_omapi` module needs several libraries from ISC's DHCP daemon. Get the
 latest source tarball from <https://www.isc.org/downloads/> and extract it to a
@@ -43,3 +43,55 @@ There is no configuration:
     omapi {
     }
 
+Configuring the DHCP server
+===========================
+
+Read the dhcpd.conf man page on how to create a suitable key. In
+practice, it works to just create some random secret (e.g. use "pwgen
+60") and then put the base64-encoded version of this secret here,
+while using the original secret in the `rlm_omapi` module!
+
+    omapi-port 4327;
+    key "radius-key" {
+        algorithm hmac-md5;
+        secret "base-64 of your secret here";
+    }
+    omapi-key radius-key;
+
+Ad-hoc configuration of the module
+==================================
+
+The module can be configured "ad hoc" using "unlang" or for example a
+Perl module. This is done by simply filling information into "virtual
+attributes" that must be defined in a dictionary -- see the file
+`dictionary.example` for an example.
+
+These attributes are are about the connection to the server:
+
+  Zedat-Omapi-Host      Host of the DHCP server (e.g. dhcp.example.com)
+  Zedat-Omapi-Port      Port of the DHCP server (e.g. 4327)
+  Zedat-Omapi-Key       Secret key to use, no base64 (e.g. abcde12345)
+  Zedat-Omapi-Key-Name  Key's name as specified in dhcpd.conf (e.g. radius-key)
+
+These attributes decide which record will be entered in the server:
+
+  Zedat-Omapi-User-Mac  MAC address of the device (e.g. 3c:d9:2b:4b:f7:b8,
+                        note that you *must* use colons!)
+  Zedat-Omapi-User-IP   IPv4 address to be assigned (e.g. 93.184.216.119)
+  Zedat-Omapi-User-Host Hostname for this device (rather arbitrary)
+
+The `rlm_omapi` module will then do the following steps:
+
+    1. Query the server if there is a lease with this MAC address
+        1.1 If yes, then compare the assigned IP addresses: in case
+            they match, no update is needed; the module returns. In
+            case they differ, this lease will be deleted on the server
+    2. Delete leases matching the wanted hostname, if any
+    3. Insert a lease of the following form:
+        host <Zedat-Omapi-User-Host> {
+            dynamic;
+            hardware ethernet <Zedat-Omapi-User-Mac>;
+            fixed-address <Zedat-Omapi-User-IP>;
+        }
+
+# vim:set noet ts=8 ts=8 sw=8:
