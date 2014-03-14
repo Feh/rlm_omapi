@@ -1,13 +1,15 @@
 Cloning the module in the FreeRADIUS source tree
 ================================================
 
-For the new build system you'll have to clone this repository as a
-submodule in the FreeRADIUS source tree at `src/modules/rlm_omapi`, as
-such:
+For the FreeRADIUS 3.0 build system you'll have to clone this repository as a
+submodule in the FreeRADIUS source tree at `src/modules/rlm_omapi`, as such:
 
     $ cd ~/src/freeradius
     $ git clone ... src/modules/rlm_omapi
     $ cd !$
+
+(If you're using a FreeRADIUS version prior to 3.0, check out the Git tag
+`pre-3.0` in this repository.)
 
 Preparing `rlm_omapi`
 =====================
