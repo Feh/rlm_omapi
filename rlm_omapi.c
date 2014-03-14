@@ -14,7 +14,7 @@
  *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
  * Copyright 2000,2006  The FreeRADIUS server project
- * Copyright 2012  Julius Plenz, FU Berlin <plenz@cis.fu-berlin.de>
+ * Copyright 2012,2014  Julius Plenz, FU Berlin <plenz@cis.fu-berlin.de>
  */
 
 #include <freeradius-devel/build.h>
